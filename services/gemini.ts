@@ -15,9 +15,12 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const generateSummary = async (text: string, lang: Language, mode: 'normal' | 'eli5' = 'normal'): Promise<string> => {
   try {
+    // Highly simplified prompt for ELI5
     const prompt = mode === 'eli5'
-      ? (lang === 'ar' ? `اشرح هذا النص ببساطة لطفل:\n${text.substring(0, 20000)}` : `Explain this text to a 5-year old:\n${text.substring(0, 20000)}`)
-      : (lang === 'ar' ? `لخص هذا النص:\n${text.substring(0, 20000)}` : `Summarize this text:\n${text.substring(0, 20000)}`);
+      ? (lang === 'ar' 
+          ? `اشرح هذا النص وكأنك تتحدث لطفل عمره 5 سنوات. استخدم كلمات بسيطة جداً، جمل قصيرة، وتشبيهات ممتعة. تجنب المصطلحات المعقدة تماماً:\n${text.substring(0, 20000)}` 
+          : `Explain this text as if you are talking to a 5-year-old. Use extremely simple words, short sentences, and fun analogies. Avoid ALL complex jargon:\n${text.substring(0, 20000)}`)
+      : (lang === 'ar' ? `لخص هذا النص بشكل شامل:\n${text.substring(0, 20000)}` : `Summarize this text comprehensively:\n${text.substring(0, 20000)}`);
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -41,11 +44,12 @@ export const translateText = async (text: string, targetLang: Language): Promise
   }
 };
 
-export const generateQA = async (text: string, lang: Language): Promise<QAPair[]> => {
+export const generateQA = async (text: string, lang: Language, existingQuestions: string[] = []): Promise<QAPair[]> => {
   try {
+    const avoid = existingQuestions.length > 0 ? `DO NOT duplicate these questions: ${JSON.stringify(existingQuestions.slice(0, 10))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Generate 5 deep-thinking Q&A pairs from this text. Ensure they are unique and cover different aspects. Output as JSON array of {question, answer}. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
+      contents: `Generate 5 deep-thinking Q&A pairs from this text. ${avoid}. Ensure they are unique and cover different aspects. Output as JSON array of {question, answer}. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -65,11 +69,12 @@ export const generateQA = async (text: string, lang: Language): Promise<QAPair[]
   } catch (error) { return []; }
 };
 
-export const generateBlanks = async (text: string, lang: Language): Promise<BlankSentence[]> => {
+export const generateBlanks = async (text: string, lang: Language, existingSentences: string[] = []): Promise<BlankSentence[]> => {
   try {
+    const avoid = existingSentences.length > 0 ? `DO NOT duplicate these sentences: ${JSON.stringify(existingSentences.slice(0, 5))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Generate 5 "Fill in the Blank" sentences from this text. Use "[blank]" for the missing word. Output as JSON array of {sentence, answer}. Choose significant keywords as answers. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
+      contents: `Generate 5 "Fill in the Blank" sentences from this text. ${avoid}. Use "[blank]" for the missing word. Output as JSON array of {sentence, answer}. Choose significant keywords as answers. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -159,11 +164,12 @@ export const extractConcepts = async (text: string, lang: Language): Promise<Con
   }
 };
 
-export const generateFlashcards = async (text: string, lang: Language): Promise<Flashcard[]> => {
+export const generateFlashcards = async (text: string, lang: Language, existingTerms: string[] = []): Promise<Flashcard[]> => {
   try {
+     const avoid = existingTerms.length > 0 ? `DO NOT create cards for these terms: ${JSON.stringify(existingTerms.slice(0, 10))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Create 5 study flashcards as JSON array of {front, back}. Try to cover different parts of the text. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
+      contents: `Create 5 study flashcards as JSON array of {front, back}. ${avoid}. Try to cover different parts of the text. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -185,11 +191,12 @@ export const generateFlashcards = async (text: string, lang: Language): Promise<
   }
 };
 
-export const generateQuiz = async (text: string, lang: Language): Promise<QuizQuestion[]> => {
+export const generateQuiz = async (text: string, lang: Language, existingQuestions: string[] = []): Promise<QuizQuestion[]> => {
   try {
+    const avoid = existingQuestions.length > 0 ? `DO NOT duplicate these questions: ${JSON.stringify(existingQuestions.slice(0, 5))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Create a 5-question quiz as JSON array of {question, options, correctAnswer, explanation}. Ensure diverse questions. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
+      contents: `Create a 5-question quiz as JSON array of {question, options, correctAnswer, explanation}. ${avoid}. Ensure diverse questions. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {

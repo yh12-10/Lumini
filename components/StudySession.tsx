@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ArrowRight, MessageSquare, Mic, Layers, BrainCircuit, Send, Sparkles, RefreshCw, CheckCircle, FileText, StickyNote, Lightbulb, Trophy, RotateCcw, Loader2, Languages, Baby, Map as MapIcon, HelpCircle, PenTool, Timer as TimerIcon, Brain, AlertCircle, Info, HelpCircle as QuestionIcon, Volume2, Eye, PlusCircle, ZoomIn, ZoomOut, Menu, Printer, Download, MoreVertical, Maximize, RotateCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MessageSquare, Mic, Layers, BrainCircuit, Send, Sparkles, RefreshCw, CheckCircle, FileText, StickyNote, Lightbulb, Trophy, RotateCcw, Loader2, Languages, Baby, Map as MapIcon, HelpCircle, PenTool, Timer as TimerIcon, Brain, AlertCircle, Info, HelpCircle as QuestionIcon, Volume2, Eye, PlusCircle, ZoomIn, ZoomOut, Menu, Printer, Download, MoreVertical, Maximize, RotateCw, Split } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import confetti from 'canvas-confetti';
 import { Doc, ChatMessage, Flashcard, QuizQuestion, Language, StudyMode, Note, Concept, RoadmapStep, QAPair, BlankSentence, Activity, Quiz } from '../types';
@@ -20,6 +20,143 @@ interface StudySessionProps {
   onSaveQuiz: (quiz: Quiz) => void;
 }
 
+const BlankCard = ({ 
+  s, 
+  idx, 
+  blankResults, 
+  blankAnswers, 
+  setBlankAnswers, 
+  handleBlankSubmit, 
+  fetchHintForBlank, 
+  isHintLoading, 
+  blankHints, 
+  translations, 
+  handleLocalTranslate, 
+  language 
+}: any) => {
+  const [canReveal, setCanReveal] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30);
+
+  useEffect(() => {
+    // Only run timer if not answered yet
+    if (blankResults[s.id] !== true) {
+      const interval = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setCanReveal(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setCanReveal(false); // Hide reveal if answered correctly
+    }
+  }, [blankResults, s.id]);
+
+  const parts = s.sentence.split('[blank]');
+
+  const revealAnswer = () => {
+    // Fill the answer but don't mark as correct for XP (optional choice, here we just fill it)
+    setBlankAnswers((prev: any) => ({ ...prev, [s.id]: s.answer }));
+  };
+
+  return (
+    <div className={`bg-white dark:bg-slate-900 p-6 md:p-10 rounded-[40px] border transition-all shadow-sm relative overflow-hidden group ${
+      blankResults[s.id] === true ? 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-emerald-950/20' : 
+      blankResults[s.id] === false ? 'border-red-100 dark:border-red-900/30 bg-red-50/30 dark:bg-red-950/20' : 
+      'border-slate-100 dark:border-slate-800'
+    }`}>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center font-black text-xs">
+            {idx + 1}
+          </div>
+          {blankResults[s.id] === true && <div className="text-emerald-500 flex items-center gap-1 font-bold text-xs uppercase tracking-widest animate-bounce-small"><CheckCircle className="w-4 h-4" /> Correct</div>}
+        </div>
+        
+        {/* Timer / Reveal Button */}
+        {blankResults[s.id] !== true && (
+          <div className="text-xs font-bold text-slate-400">
+             {!canReveal ? (
+               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+                  <TimerIcon className="w-3 h-3 animate-pulse" />
+                  <span>{t[language].revealWait || 'Wait'} {timeLeft}s</span>
+               </div>
+             ) : (
+               <button 
+                onClick={revealAnswer}
+                className="flex items-center gap-2 text-indigo-500 hover:text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full transition-colors"
+               >
+                 <Eye className="w-3 h-3" /> {t[language].revealAnswer || 'Reveal Answer'}
+               </button>
+             )}
+          </div>
+        )}
+      </div>
+
+      <div className="text-lg md:text-2xl font-bold leading-relaxed text-slate-800 dark:text-slate-100 text-start flex flex-wrap items-center gap-2">
+        <span>{translations[`blank-p1-${s.id}`] || parts[0]}</span>
+        <div className="relative inline-block min-w-[120px] group flex-1 md:flex-none">
+          <input 
+            value={blankAnswers[s.id] || ''} 
+            onChange={e => setBlankAnswers({...blankAnswers, [s.id]: e.target.value})}
+            onKeyDown={e => e.key === 'Enter' && handleBlankSubmit(s.id, s.answer)}
+            disabled={blankResults[s.id] === true}
+            className={`w-full px-4 py-1 bg-transparent border-b-4 outline-none transition-all text-center placeholder:text-slate-300 dark:placeholder:text-slate-700 ${
+              blankResults[s.id] === true ? 'border-emerald-500 text-emerald-600 font-black' : 
+              blankResults[s.id] === false ? 'border-red-500 text-red-600' : 
+              'border-brand-500 focus:border-brand-600 focus:bg-brand-50/30 dark:focus:bg-brand-900/20'
+            }`}
+            placeholder="..."
+          />
+        </div>
+        <span>{translations[`blank-p2-${s.id}`] || parts[1]}</span>
+      </div>
+
+      <div className="mt-10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <button 
+            onClick={() => handleBlankSubmit(s.id, s.answer)} 
+            disabled={blankResults[s.id] === true}
+            className={`flex-1 md:flex-none px-8 py-3 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95 ${
+              blankResults[s.id] === true ? 'bg-emerald-500 text-white cursor-not-allowed opacity-50' : 'bg-brand-600 text-white hover:bg-brand-700 shadow-brand-500/20'
+            }`}
+          >
+            {t[language].check}
+          </button>
+          
+          <button 
+            onClick={() => fetchHintForBlank(s.id, s.sentence, s.answer)}
+            disabled={blankResults[s.id] === true || isHintLoading[s.id]}
+            className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-transparent hover:border-brand-200"
+            title="Get AI Hint"
+          >
+            {isHintLoading[s.id] ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lightbulb className="w-5 h-5" />}
+          </button>
+        </div>
+
+        <button onClick={() => {
+          handleLocalTranslate(`blank-p1-${s.id}`, parts[0]);
+          handleLocalTranslate(`blank-p2-${s.id}`, parts[1]);
+          if (blankHints[s.id]) handleLocalTranslate(`blank-hint-txt-${s.id}`, blankHints[s.id]);
+        }} className="text-xs font-bold text-slate-400 hover:text-brand-500 flex items-center justify-center md:justify-end gap-2 transition-colors">
+          <Languages className="w-4 h-4" /> {t[language].translate}
+        </button>
+      </div>
+
+      {blankHints[s.id] && (
+        <div className="mt-6 p-5 bg-indigo-50 dark:bg-brand-900/20 rounded-2xl border-l-4 border-indigo-400 animate-fade-in-up text-start">
+          <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 dark:text-brand-400 flex items-center gap-2 mb-2"><Info className="w-3 h-3" /> AI {t[language].hint}</p>
+          <p className="text-sm font-medium text-indigo-700 dark:text-brand-300 leading-relaxed">{translations[`blank-hint-txt-${s.id}`] || blankHints[s.id]}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, language, onUpdateNote, savedNote, onAddXp, onUpdateDoc, onAddActivity, onSaveQuiz }) => {
   const [activeTab, setActiveTab] = useState<StudyMode>('original');
   const [showNotes, setShowNotes] = useState(false);
@@ -30,17 +167,20 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Cached State initialized from Doc
   const [summary, setSummary] = useState<string | null>(doc.summary || null);
-  const [summaryMode, setSummaryMode] = useState<'normal' | 'eli5'>('normal');
+  const [eli5Summary, setEli5Summary] = useState<string | null>(doc.eli5Summary || null);
+  const [showEli5Split, setShowEli5Split] = useState(false);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
   
   const [concepts, setConcepts] = useState<Concept[]>(doc.concepts || []);
   const [roadmap, setRoadmap] = useState<RoadmapStep[]>(doc.roadmap || []);
-  const [qaPairs, setQaPairs] = useState<QAPair[]>([]);
-  const [blankSentences, setBlankSentences] = useState<BlankSentence[]>([]);
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [qaPairs, setQaPairs] = useState<QAPair[]>(doc.qaPairs || []);
+  const [blankSentences, setBlankSentences] = useState<BlankSentence[]>(doc.blankSentences || []);
+  const [flashcards, setFlashcards] = useState<Flashcard[]>(doc.flashcards || []);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(doc.quizQuestions || []);
   
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
@@ -75,7 +215,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
     setIsGenerating(true);
     try {
       if (type === 'summary') {
-        const res = await generateSummary(doc.content, language, summaryMode);
+        const res = await generateSummary(doc.content, language, 'normal');
         setSummary(res);
         onUpdateDoc({ ...doc, summary: res });
       } else if (type === 'concepts') {
@@ -89,17 +229,34 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
       } else if (type === 'qa') {
         const res = await generateQA(doc.content, language);
         setQaPairs(res);
+        onUpdateDoc({ ...doc, qaPairs: res });
       } else if (type === 'blanks') {
         const res = await generateBlanks(doc.content, language);
         setBlankSentences(res);
+        onUpdateDoc({ ...doc, blankSentences: res });
       } else if (type === 'flashcards') {
         const res = await generateFlashcards(doc.content, language);
         setFlashcards(res);
+        onUpdateDoc({ ...doc, flashcards: res });
       } else if (type === 'quiz') {
         const res = await generateQuiz(doc.content, language);
         setQuizQuestions(res);
+        onUpdateDoc({ ...doc, quizQuestions: res });
       }
     } catch (e) { console.error(e); }
+    setIsGenerating(false);
+  };
+
+  const handleGenerateEli5 = async () => {
+    if (eli5Summary) {
+      setShowEli5Split(!showEli5Split);
+      return;
+    }
+    setIsGenerating(true);
+    const res = await generateSummary(doc.content, language, 'eli5');
+    setEli5Summary(res);
+    setShowEli5Split(true);
+    onUpdateDoc({ ...doc, eli5Summary: res });
     setIsGenerating(false);
   };
 
@@ -107,17 +264,29 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
     setIsGeneratingMore(true);
     try {
       if (type === 'qa') {
-        const res = await generateQA(doc.content, language);
-        setQaPairs(prev => [...prev, ...res]);
+        const existingQs = qaPairs.map(q => q.question);
+        const res = await generateQA(doc.content, language, existingQs);
+        const newItems = [...qaPairs, ...res];
+        setQaPairs(newItems);
+        onUpdateDoc({ ...doc, qaPairs: newItems });
       } else if (type === 'blanks') {
-        const res = await generateBlanks(doc.content, language);
-        setBlankSentences(prev => [...prev, ...res]);
+        const existingSentences = blankSentences.map(s => s.sentence);
+        const res = await generateBlanks(doc.content, language, existingSentences);
+        const newItems = [...blankSentences, ...res];
+        setBlankSentences(newItems);
+        onUpdateDoc({ ...doc, blankSentences: newItems });
       } else if (type === 'flashcards') {
-        const res = await generateFlashcards(doc.content, language);
-        setFlashcards(prev => [...prev, ...res]);
+        const existingTerms = flashcards.map(f => f.front);
+        const res = await generateFlashcards(doc.content, language, existingTerms);
+        const newItems = [...flashcards, ...res];
+        setFlashcards(newItems);
+        onUpdateDoc({ ...doc, flashcards: newItems });
       } else if (type === 'quiz') {
-        const res = await generateQuiz(doc.content, language);
-        setQuizQuestions(prev => [...prev, ...res]);
+        const existingQs = quizQuestions.map(q => q.question);
+        const res = await generateQuiz(doc.content, language, existingQs);
+        const newItems = [...quizQuestions, ...res];
+        setQuizQuestions(newItems);
+        onUpdateDoc({ ...doc, quizQuestions: newItems });
         if (quizSubmitted) setQuizSubmitted(false);
       }
     } catch (e) {
@@ -198,14 +367,14 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
   const calculateScore = () => quizQuestions.reduce((acc, q) => (quizAnswers[q.id] === q.correctAnswer ? acc + 1 : acc), 0);
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 relative animate-fade-in" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="h-full flex flex-col bg-white dark:bg-slate-900 md:rounded-3xl rounded-none shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 relative animate-fade-in" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <div className="h-16 border-b border-slate-100 dark:border-slate-800 flex items-center px-6 justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur z-20">
-        <div className="flex items-center overflow-hidden">
-          <button onClick={onBack} className={`p-2 hover:bg-slate-100 rounded-full ${language === 'ar' ? 'ml-2' : 'mr-2'} transition-colors`}>
+      <div className="h-16 border-b border-slate-100 dark:border-slate-800 flex items-center px-4 md:px-6 justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur z-20 shrink-0">
+        <div className="flex items-center overflow-hidden gap-2">
+          <button onClick={onBack} className={`p-2 hover:bg-slate-100 rounded-full transition-colors`}>
             {language === 'ar' ? <ArrowRight /> : <ArrowLeft />}
           </button>
-          <h2 className="font-bold truncate text-slate-800 dark:text-slate-100">{doc.title}</h2>
+          <h2 className="font-bold truncate text-slate-800 dark:text-slate-100 max-w-[150px] md:max-w-xs">{doc.title}</h2>
         </div>
         <div className="flex items-center gap-2">
            <button onClick={() => setShowNotes(!showNotes)} className={`p-2 rounded-xl transition-all ${showNotes ? 'bg-amber-100 text-amber-600' : 'text-slate-400 hover:bg-slate-50'}`}>
@@ -214,8 +383,8 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-slate-50/50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 p-2 overflow-x-auto no-scrollbar flex items-center gap-2 glass-panel shadow-sm z-20 relative">
+      {/* Tabs - Horizontal Scroll for Mobile */}
+      <div className="bg-slate-50/50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 p-2 overflow-x-auto no-scrollbar flex items-center gap-2 glass-panel shadow-sm z-20 relative w-full shrink-0">
         {[
           { id: 'original', icon: Eye, label: t[language].original },
           { id: 'summary', icon: FileText, label: t[language].summary },
@@ -231,7 +400,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+            className={`flex items-center px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap shrink-0 ${
               activeTab === tab.id ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-slate-400'
             }`}
           >
@@ -244,7 +413,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto bg-slate-50/20 dark:bg-slate-950/20 relative">
         {isGenerating ? (
-          <div className="flex flex-col items-center justify-center h-full animate-pulse">
+          <div className="flex flex-col items-center justify-center h-full animate-pulse p-4">
             <RefreshCw className="w-10 h-10 text-brand-500 animate-spin mb-4" />
             <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">{t[language].generating}</p>
           </div>
@@ -255,19 +424,16 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
             {activeTab === 'original' && (
               <div className="h-full flex flex-col bg-slate-100 dark:bg-slate-900">
                 {/* Viewer Toolbar */}
-                <div className="bg-slate-700 text-white p-3 flex items-center justify-between shadow-md z-10 sticky top-0">
-                  <div className="flex items-center gap-4">
+                <div className="bg-slate-700 text-white p-3 flex items-center justify-between shadow-md z-10 sticky top-0 overflow-x-auto no-scrollbar gap-4">
+                  <div className="flex items-center gap-4 shrink-0">
                     <button className="p-2 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white transition-colors">
                       <Menu className="w-5 h-5" />
                     </button>
-                    <div className="font-medium text-sm truncate max-w-[200px]" title={doc.title}>
-                      {doc.title}
-                    </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 bg-slate-800 rounded-lg p-1">
-                     <span className="text-xs px-3 text-slate-300 font-mono">1 / {Math.max(1, Math.ceil(doc.content.length / 3000))}</span>
-                     <div className="w-px h-4 bg-slate-600"></div>
+                  <div className="flex items-center gap-2 bg-slate-800 rounded-lg p-1 shrink-0">
+                     <span className="text-xs px-2 text-slate-300 font-mono hidden md:block">1 / {Math.max(1, Math.ceil(doc.content.length / 3000))}</span>
+                     <div className="w-px h-4 bg-slate-600 hidden md:block"></div>
                      <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1.5 hover:bg-slate-600 rounded-md">
                        <ZoomOut className="w-4 h-4" />
                      </button>
@@ -277,34 +443,25 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                      </button>
                   </div>
                   
-                  <div className="flex items-center gap-1">
-                    <button className="p-2 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white" title="Rotate">
-                      <RotateCw className="w-5 h-5" />
-                    </button>
+                  <div className="flex items-center gap-1 shrink-0">
                     <button className="p-2 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white" title="Download">
                       <Download className="w-5 h-5" />
-                    </button>
-                    <button className="p-2 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white" title="Print">
-                      <Printer className="w-5 h-5" />
-                    </button>
-                    <button className="p-2 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white">
-                      <MoreVertical className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
 
                 {/* Viewer Content (Paper) */}
-                <div className="flex-1 overflow-y-auto p-8 bg-slate-500/50 flex justify-center custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-500/50 flex justify-center custom-scrollbar">
                   <div 
-                    className="bg-white text-slate-900 shadow-2xl p-12 min-h-[1000px] origin-top transition-transform duration-200 ease-out"
+                    className="bg-white text-slate-900 shadow-2xl p-6 md:p-12 min-h-[1000px] origin-top transition-transform duration-200 ease-out"
                     style={{ 
-                      width: '850px', 
-                      maxWidth: '100%',
+                      width: '100%',
+                      maxWidth: '850px',
                       transform: `scale(${zoomLevel / 100})`,
                       marginBottom: '50px'
                     }}
                   >
-                    <pre className="whitespace-pre-wrap font-serif text-lg leading-loose selection:bg-cyan-100 selection:text-cyan-900">
+                    <pre className="whitespace-pre-wrap font-serif text-sm md:text-lg leading-loose selection:bg-cyan-100 selection:text-cyan-900 overflow-x-hidden w-full">
                       {doc.content}
                     </pre>
                   </div>
@@ -312,29 +469,55 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
               </div>
             )}
 
-            {/* Other tabs remain unchanged in logic, but are rendered inside this container */}
+            {/* Summary Tab (With ELI5 Split View) */}
             {activeTab === 'summary' && (
-              <div className="p-8 max-w-4xl mx-auto space-y-6 text-start">
-                <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
-                  <div className="flex gap-2">
-                    <button onClick={() => { setSummaryMode(summaryMode === 'normal' ? 'eli5' : 'normal'); handleFetch('summary'); }} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${summaryMode === 'eli5' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'}`}>
-                      <Baby className={`w-3 h-3 ${language === 'ar' ? 'ml-2' : 'mr-2'} inline`} /> {t[language].eli5}
+              <div className="p-4 md:p-8 h-full flex flex-col">
+                <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 shrink-0 sticky top-0 z-10">
+                  <div className="flex gap-2 flex-wrap">
+                    <button 
+                      onClick={handleGenerateEli5} 
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${showEli5Split ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200 dark:ring-indigo-900' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'}`}
+                    >
+                      {showEli5Split ? <Split className="w-3 h-3" /> : <Baby className="w-3 h-3" />}
+                      {t[language].eli5}
                     </button>
                     <button onClick={() => handleLocalTranslate('main-summary', summary || '')} className="px-4 py-2 rounded-xl text-xs font-bold bg-brand-50 text-brand-600 hover:bg-brand-100 transition-all border border-brand-100 dark:bg-brand-900/20 dark:border-brand-800">
                       <Languages className={`w-3 h-3 ${language === 'ar' ? 'ml-2' : 'mr-2'} inline`} /> {t[language].translate}
                     </button>
                   </div>
                 </div>
-                <div className="prose dark:prose-invert max-w-none bg-white dark:bg-slate-900 p-10 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 relative group">
-                  <ReactMarkdown>{translations['main-summary'] || summary || ''}</ReactMarkdown>
+
+                <div className="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
+                  {/* Original Summary */}
+                  <div className={`flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden ${showEli5Split ? 'h-1/2 md:h-full' : 'h-full'}`}>
+                     <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-black text-xs uppercase tracking-widest text-slate-500 flex justify-between">
+                       <span>Standard Summary</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-6 md:p-10 prose dark:prose-invert max-w-none">
+                        <ReactMarkdown>{translations['main-summary'] || summary || ''}</ReactMarkdown>
+                     </div>
+                  </div>
+
+                  {/* ELI5 Summary Split View */}
+                  {showEli5Split && (
+                    <div className="flex-1 flex flex-col bg-indigo-50 dark:bg-indigo-950/20 rounded-3xl shadow-sm border border-indigo-100 dark:border-indigo-900/30 overflow-hidden animate-fade-in h-1/2 md:h-full">
+                       <div className="p-4 border-b border-indigo-100 dark:border-indigo-900/30 bg-indigo-100/50 dark:bg-indigo-900/50 font-black text-xs uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex justify-between items-center">
+                         <span className="flex items-center gap-2"><Baby className="w-4 h-4" /> ELI5 (Simple Mode)</span>
+                         <button onClick={() => setShowEli5Split(false)} className="hover:bg-indigo-200 dark:hover:bg-indigo-900 rounded-lg p-1 transition-colors"><Maximize className="w-3 h-3" /></button>
+                       </div>
+                       <div className="flex-1 overflow-y-auto p-6 md:p-10 prose dark:prose-invert max-w-none">
+                          <ReactMarkdown>{eli5Summary || "Generating simple explanation..."}</ReactMarkdown>
+                       </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {activeTab === 'concepts' && (
-              <div className="p-8 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 md:p-8 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
                 {concepts.length === 0 ? <p className="text-center col-span-2 py-20 text-slate-400 font-bold uppercase tracking-widest">{t[language].noConcepts}</p> : concepts.map((c, i) => (
-                  <div key={i} className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border-l-8 border-yellow-500 shadow-sm group hover:shadow-xl transition-all text-start border dark:border-slate-800">
+                  <div key={i} className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[32px] border-l-8 border-yellow-500 shadow-sm group hover:shadow-xl transition-all text-start border dark:border-slate-800">
                     <div className="flex justify-between mb-4">
                       <h4 className="font-black text-xl text-slate-800 dark:text-white">{translations[`concept-t-${i}`] || c.term}</h4>
                       <button onClick={() => {
@@ -352,18 +535,18 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
 
             {/* Roadmap Tab */}
             {activeTab === 'roadmap' && (
-              <div className="p-8 max-w-3xl mx-auto space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+              <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 <h3 className="text-2xl font-bold flex items-center gap-3">
                   <MapIcon className="text-emerald-500" /> {t[language].roadmap}
                 </h3>
                 <div className="space-y-4">
                   {roadmap.map((step, idx) => (
-                    <div key={step.id} className={`relative ${language === 'ar' ? 'pr-12' : 'pl-12'} pb-8 border-l-2 border-emerald-100 last:border-0 group`}>
+                    <div key={step.id} className={`relative ${language === 'ar' ? 'pr-8 md:pr-12' : 'pl-8 md:pl-12'} pb-8 border-l-2 border-emerald-100 last:border-0 group`}>
                       <div className={`absolute ${language === 'ar' ? '-right-[9px]' : '-left-[9px]'} top-0 w-4 h-4 rounded-full border-2 border-white shadow-md transition-colors ${step.completed ? 'bg-emerald-500' : 'bg-slate-200 group-hover:bg-emerald-300'}`}></div>
                       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all text-start">
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex flex-col md:flex-row justify-between items-start mb-2 gap-2">
                           <h4 className="font-bold text-lg">{translations[`roadmap-${step.id}`] || step.title}</h4>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 self-end md:self-auto">
                             <button onClick={() => {
                               handleLocalTranslate(`roadmap-${step.id}`, step.title);
                               handleLocalTranslate(`roadmap-desc-${step.id}`, step.description);
@@ -374,6 +557,8 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                               const next = [...roadmap];
                               next[idx].completed = !next[idx].completed;
                               setRoadmap(next);
+                              // Update doc to save state
+                              onUpdateDoc({ ...doc, roadmap: next });
                               if (next[idx].completed) {
                                 onAddXp(20);
                                 onAddActivity('upload', `Completed roadmap milestone: ${step.title}`);
@@ -392,9 +577,9 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
 
             {/* Q&A Tab */}
             {activeTab === 'qa' && (
-              <div className="p-8 max-w-4xl mx-auto space-y-6 text-start pb-20">
+              <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 text-start pb-20">
                 {qaPairs.length === 0 ? <p className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">Generating Q&A...</p> : qaPairs.map((qa, i) => (
-                  <div key={qa.id} className="bg-white dark:bg-slate-900 p-8 rounded-[32px] shadow-sm border border-slate-100 dark:border-slate-800 group hover:shadow-xl transition-all relative">
+                  <div key={qa.id} className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[32px] shadow-sm border border-slate-100 dark:border-slate-800 group hover:shadow-xl transition-all relative">
                     <button onClick={() => {
                       handleLocalTranslate(`qa-q-${qa.id}`, qa.question);
                       handleLocalTranslate(`qa-a-${qa.id}`, qa.answer);
@@ -428,85 +613,28 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
 
             {/* Blanks Tab */}
             {activeTab === 'blanks' && (
-              <div className="p-8 max-w-3xl mx-auto space-y-8 animate-fade-in pb-20">
+              <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-8 animate-fade-in pb-20">
                 <div className="text-center mb-10">
                    <h3 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t[language].blanks}</h3>
                    <p className="text-slate-500 dark:text-slate-400 font-medium">Complete the sentences to test your comprehension.</p>
                 </div>
-                {blankSentences.map((s, idx) => {
-                  const parts = s.sentence.split('[blank]');
-                  return (
-                    <div key={s.id} className={`bg-white dark:bg-slate-900 p-10 rounded-[40px] border transition-all shadow-sm relative overflow-hidden group ${
-                      blankResults[s.id] === true ? 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-emerald-950/20' : 
-                      blankResults[s.id] === false ? 'border-red-100 dark:border-red-900/30 bg-red-50/30 dark:bg-red-950/20' : 
-                      'border-slate-100 dark:border-slate-800'
-                    }`}>
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center font-black text-xs">
-                          {idx + 1}
-                        </div>
-                        {blankResults[s.id] === true && <div className="text-emerald-500 flex items-center gap-1 font-bold text-xs uppercase tracking-widest animate-bounce-small"><CheckCircle className="w-4 h-4" /> Correct</div>}
-                      </div>
-
-                      <div className="text-xl md:text-2xl font-bold leading-relaxed text-slate-800 dark:text-slate-100 text-start flex flex-wrap items-center gap-2">
-                        <span>{translations[`blank-p1-${s.id}`] || parts[0]}</span>
-                        <div className="relative inline-block min-w-[140px] group">
-                          <input 
-                            value={blankAnswers[s.id] || ''} 
-                            onChange={e => setBlankAnswers({...blankAnswers, [s.id]: e.target.value})}
-                            onKeyDown={e => e.key === 'Enter' && handleBlankSubmit(s.id, s.answer)}
-                            disabled={blankResults[s.id] === true}
-                            className={`w-full px-4 py-1 bg-transparent border-b-4 outline-none transition-all text-center placeholder:text-slate-300 dark:placeholder:text-slate-700 ${
-                              blankResults[s.id] === true ? 'border-emerald-500 text-emerald-600 font-black' : 
-                              blankResults[s.id] === false ? 'border-red-500 text-red-600' : 
-                              'border-brand-500 focus:border-brand-600 focus:bg-brand-50/30 dark:focus:bg-brand-900/20'
-                            }`}
-                            placeholder="..."
-                          />
-                        </div>
-                        <span>{translations[`blank-p2-${s.id}`] || parts[1]}</span>
-                      </div>
-
-                      <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleBlankSubmit(s.id, s.answer)} 
-                            disabled={blankResults[s.id] === true}
-                            className={`px-8 py-3 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95 ${
-                              blankResults[s.id] === true ? 'bg-emerald-500 text-white cursor-not-allowed opacity-50' : 'bg-brand-600 text-white hover:bg-brand-700 shadow-brand-500/20'
-                            }`}
-                          >
-                            {t[language].check}
-                          </button>
-                          
-                          <button 
-                            onClick={() => fetchHintForBlank(s.id, s.sentence, s.answer)}
-                            disabled={blankResults[s.id] === true || isHintLoading[s.id]}
-                            className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-transparent hover:border-brand-200"
-                            title="Get AI Hint"
-                          >
-                            {isHintLoading[s.id] ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lightbulb className="w-5 h-5" />}
-                          </button>
-                        </div>
-
-                        <button onClick={() => {
-                          handleLocalTranslate(`blank-p1-${s.id}`, parts[0]);
-                          handleLocalTranslate(`blank-p2-${s.id}`, parts[1]);
-                          if (blankHints[s.id]) handleLocalTranslate(`blank-hint-txt-${s.id}`, blankHints[s.id]);
-                        }} className="text-xs font-bold text-slate-400 hover:text-brand-500 flex items-center gap-2 transition-colors">
-                          <Languages className="w-4 h-4" /> {t[language].translate}
-                        </button>
-                      </div>
-
-                      {blankHints[s.id] && (
-                        <div className="mt-6 p-5 bg-indigo-50 dark:bg-brand-900/20 rounded-2xl border-l-4 border-indigo-400 animate-fade-in-up text-start">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 dark:text-brand-400 flex items-center gap-2 mb-2"><Info className="w-3 h-3" /> AI {t[language].hint}</p>
-                          <p className="text-sm font-medium text-indigo-700 dark:text-brand-300 leading-relaxed">{translations[`blank-hint-txt-${s.id}`] || blankHints[s.id]}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {blankSentences.map((s, idx) => (
+                  <BlankCard 
+                    key={s.id}
+                    s={s}
+                    idx={idx}
+                    blankResults={blankResults}
+                    blankAnswers={blankAnswers}
+                    setBlankAnswers={setBlankAnswers}
+                    handleBlankSubmit={handleBlankSubmit}
+                    fetchHintForBlank={fetchHintForBlank}
+                    isHintLoading={isHintLoading}
+                    blankHints={blankHints}
+                    translations={translations}
+                    handleLocalTranslate={handleLocalTranslate}
+                    language={language}
+                  />
+                ))}
                 {blankSentences.length > 0 && (
                    <div className="flex justify-center pt-8">
                       <button 
@@ -524,11 +652,11 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
 
             {/* Chat Tab */}
             {activeTab === 'chat' && (
-              <div className="h-full flex flex-col p-6 space-y-4">
+              <div className="h-full flex flex-col p-4 md:p-6 space-y-4">
                 <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                   {messages.map(m => (
                     <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`p-4 rounded-3xl max-w-[85%] relative group text-start shadow-sm border ${
+                      <div className={`p-4 rounded-3xl max-w-[90%] md:max-w-[85%] relative group text-start shadow-sm border ${
                         m.role === 'user' 
                           ? 'bg-brand-600 text-white border-transparent rounded-br-none' 
                           : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 rounded-bl-none text-slate-800 dark:text-slate-200'
@@ -545,22 +673,22 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                   {isLoadingChat && <div className="flex gap-2 items-center text-slate-400 font-bold text-xs uppercase tracking-widest"><Loader2 className="animate-spin w-4 h-4 text-brand-500" /> Thinking...</div>}
                   <div ref={messagesEndRef} />
                 </div>
-                <div className="flex gap-3 bg-white dark:bg-slate-900 p-2.5 rounded-[32px] shadow-2xl border border-slate-100 dark:border-slate-800">
+                <div className="flex gap-3 bg-white dark:bg-slate-900 p-2.5 rounded-[32px] shadow-2xl border border-slate-100 dark:border-slate-800 shrink-0">
                   <input 
                     value={input} 
                     onChange={e => setInput(e.target.value)} 
                     onKeyDown={e => e.key === 'Enter' && handleSendMessage()} 
-                    className="flex-1 p-4 bg-transparent outline-none dark:text-white font-medium" 
+                    className="flex-1 p-3 md:p-4 bg-transparent outline-none dark:text-white font-medium text-sm md:text-base" 
                     placeholder={t[language].chatPlaceholder} 
                   />
-                  <button onClick={handleSendMessage} className="p-4 bg-brand-600 text-white rounded-2xl shadow-xl hover:bg-brand-700 transition-all hover:scale-105 active:scale-95"><Send className="w-5 h-5" /></button>
+                  <button onClick={handleSendMessage} className="p-3 md:p-4 bg-brand-600 text-white rounded-2xl shadow-xl hover:bg-brand-700 transition-all hover:scale-105 active:scale-95"><Send className="w-5 h-5" /></button>
                 </div>
               </div>
             )}
 
             {/* Quiz Tab */}
             {activeTab === 'quiz' && (
-              <div className="p-8 max-w-4xl mx-auto space-y-8 text-start pb-20">
+              <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 text-start pb-20">
                 {!quizSubmitted ? (
                   <>
                     <div className="text-center mb-10">
@@ -568,17 +696,17 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                       <p className="text-slate-500 dark:text-slate-400 font-medium">Test what you've learned from this document.</p>
                     </div>
                     {quizQuestions.map((q, idx) => (
-                      <div key={q.id} className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm relative group">
+                      <div key={q.id} className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm relative group">
                         <button onClick={() => handleLocalTranslate(`quiz-q-${q.id}`, q.question)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl">
                           <Languages className="w-4 h-4 text-brand-500" />
                         </button>
-                        <h4 className="text-xl font-black text-slate-800 dark:text-white mb-6 pr-8">{idx + 1}. {translations[`quiz-q-${q.id}`] || q.question}</h4>
+                        <h4 className="text-lg md:text-xl font-black text-slate-800 dark:text-white mb-6 pr-8">{idx + 1}. {translations[`quiz-q-${q.id}`] || q.question}</h4>
                         <div className="grid gap-3">
                           {q.options.map((opt, oIdx) => (
                             <button
                               key={oIdx}
                               onClick={() => setQuizAnswers({ ...quizAnswers, [q.id]: oIdx })}
-                              className={`p-5 rounded-2xl text-start font-bold transition-all border-2 ${
+                              className={`p-4 md:p-5 rounded-2xl text-start font-bold transition-all border-2 ${
                                 quizAnswers[q.id] === oIdx
                                   ? 'bg-brand-600 text-white border-transparent shadow-lg scale-[1.02]'
                                   : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-transparent hover:border-brand-200'
@@ -588,18 +716,18 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${quizAnswers[q.id] === oIdx ? 'bg-white/20' : 'bg-white dark:bg-slate-700 shadow-sm'}`}>
                                   {String.fromCharCode(65 + oIdx)}
                                 </div>
-                                {opt}
+                                <span className="text-sm md:text-base">{opt}</span>
                               </div>
                             </button>
                           ))}
                         </div>
                       </div>
                     ))}
-                    <div className="flex justify-center pt-6 gap-4">
+                    <div className="flex flex-col md:flex-row justify-center pt-6 gap-4">
                       <button 
                         onClick={() => handleLoadMore('quiz')} 
                         disabled={isGeneratingMore}
-                        className="px-8 py-5 bg-white dark:bg-slate-800 border-2 border-brand-100 dark:border-slate-700 text-brand-600 dark:text-brand-400 rounded-3xl font-black text-lg shadow-lg hover:bg-brand-50 dark:hover:bg-slate-700 transition-all flex items-center gap-2"
+                        className="px-8 py-5 bg-white dark:bg-slate-800 border-2 border-brand-100 dark:border-slate-700 text-brand-600 dark:text-brand-400 rounded-3xl font-black text-lg shadow-lg hover:bg-brand-50 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
                       >
                         {isGeneratingMore ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
                         {t[language].loadMore || "Load More"}
@@ -620,7 +748,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                     
                     <div className="space-y-6 max-w-3xl mx-auto text-start">
                       {quizQuestions.map((q, idx) => (
-                        <div key={idx} className={`p-8 rounded-[40px] border-2 group relative transition-all ${quizAnswers[q.id] === q.correctAnswer ? 'bg-emerald-50/30 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30' : 'bg-red-50/30 border-red-100 dark:bg-red-950/20 dark:border-red-900/30'}`}>
+                        <div key={idx} className={`p-6 md:p-8 rounded-[40px] border-2 group relative transition-all ${quizAnswers[q.id] === q.correctAnswer ? 'bg-emerald-50/30 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30' : 'bg-red-50/30 border-red-100 dark:bg-red-950/20 dark:border-red-900/30'}`}>
                           <button onClick={() => {
                             handleLocalTranslate(`quiz-exp-${q.id}`, q.explanation);
                             handleLocalTranslate(`quiz-q-res-${q.id}`, q.question);
@@ -628,8 +756,8 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                             <Languages className="w-4 h-4 text-brand-500" />
                           </button>
                           <h4 className="font-black text-lg mb-4 text-slate-800 dark:text-white pr-8">{idx + 1}. {translations[`quiz-q-res-${q.id}`] || q.question}</h4>
-                          <div className="flex items-center gap-3 mb-4">
-                            <span className={`px-4 py-1.5 rounded-full font-black text-xs uppercase tracking-widest ${quizAnswers[q.id] === q.correctAnswer ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+                          <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+                            <span className={`px-4 py-1.5 rounded-full font-black text-xs uppercase tracking-widest w-fit ${quizAnswers[q.id] === q.correctAnswer ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                               {quizAnswers[q.id] === q.correctAnswer ? t[language].correct : t[language].wrong}
                             </span>
                             <span className="text-sm font-bold text-slate-400">Answer: {q.options[q.correctAnswer]}</span>
@@ -652,7 +780,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
 
             {/* Flashcards Tab */}
             {activeTab === 'flashcards' && (
-              <div className="h-full flex flex-col items-center justify-center p-8">
+              <div className="h-full flex flex-col items-center justify-center p-4 md:p-8">
                 {flashcards.length === 0 ? (
                   <p className="text-slate-400 font-bold uppercase tracking-widest">Generating Flashcards...</p>
                 ) : (
@@ -669,16 +797,16 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                     
                     <div className="h-[350px] md:h-[450px] w-full cursor-pointer relative" onClick={() => setIsCardFlipped(!isCardFlipped)} style={{ perspective: '1200px' }}>
                       <div className={`w-full h-full relative transition-all duration-700 transform-style-3d shadow-2xl rounded-[40px] ${isCardFlipped ? 'rotate-y-180' : ''}`} style={{ transformStyle: 'preserve-3d', transform: isCardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-                        <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-[40px] p-12 flex flex-col items-center justify-center text-center border-2 border-slate-50 dark:border-slate-800" style={{ backfaceVisibility: 'hidden' }}>
-                          <p className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white leading-tight">
+                        <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-[40px] p-8 md:p-12 flex flex-col items-center justify-center text-center border-2 border-slate-50 dark:border-slate-800" style={{ backfaceVisibility: 'hidden' }}>
+                          <p className="text-xl md:text-3xl font-black text-slate-800 dark:text-white leading-tight">
                             {translations[`fc-f-${flashcards[activeCardIndex].id}`] || flashcards[activeCardIndex].front}
                           </p>
                           <div className="mt-8 flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-widest bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-full border border-slate-100 dark:border-slate-700">
                             <Sparkles className="w-3 h-3" /> {t[language].flip}
                           </div>
                         </div>
-                        <div className="absolute inset-0 bg-brand-600 text-white rounded-[40px] p-12 flex flex-col items-center justify-center text-center" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                          <p className="text-xl md:text-2xl font-bold leading-relaxed">
+                        <div className="absolute inset-0 bg-brand-600 text-white rounded-[40px] p-8 md:p-12 flex flex-col items-center justify-center text-center" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                          <p className="text-lg md:text-2xl font-bold leading-relaxed">
                             {translations[`fc-b-${flashcards[activeCardIndex].id}`] || flashcards[activeCardIndex].back}
                           </p>
                         </div>
@@ -723,7 +851,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                 <div className={`absolute inset-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 transition-opacity duration-1000 ${isVoiceActive ? 'opacity-100' : 'opacity-0'}`}></div>
                 
                 {/* Visualizer Circle */}
-                <div className="relative mb-10">
+                <div className="relative mb-10 scale-75 md:scale-100">
                    {isSpeaking && (
                      <div className="absolute inset-[-40px] rounded-full border border-brand-500/30 animate-ping"></div>
                    )}
@@ -732,11 +860,11 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                   </div>
                 </div>
 
-                <h3 className="text-4xl font-black mb-4 relative z-10 tracking-tight text-center">
+                <h3 className="text-2xl md:text-4xl font-black mb-4 relative z-10 tracking-tight text-center">
                   {isConnecting ? 'Connecting AI...' : (isVoiceActive ? (isSpeaking ? t[language].voiceSpeaking : t[language].voiceListening) : t[language].live)}
                 </h3>
                 
-                <p className="text-slate-400 mb-12 max-w-sm text-center relative z-10 text-lg font-medium opacity-80">
+                <p className="text-slate-400 mb-12 max-w-sm text-center relative z-10 text-base md:text-lg font-medium opacity-80">
                   {isVoiceActive ? t[language].voiceDescActive : t[language].voiceDesc}
                 </p>
                 
@@ -747,7 +875,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ doc, onBack, languag
                   </div>
                 )}
                 
-                <button onClick={isVoiceActive ? stopSession : startSession} disabled={isConnecting} className={`px-20 py-6 rounded-full font-black text-xl shadow-2xl transition-all hover:scale-105 active:scale-95 relative z-10 ${isVoiceActive ? 'bg-red-500 hover:bg-red-600' : 'bg-white text-slate-950 hover:shadow-brand-500/50'}`}>
+                <button onClick={isVoiceActive ? stopSession : startSession} disabled={isConnecting} className={`px-12 md:px-20 py-4 md:py-6 rounded-full font-black text-lg md:text-xl shadow-2xl transition-all hover:scale-105 active:scale-95 relative z-10 ${isVoiceActive ? 'bg-red-500 hover:bg-red-600' : 'bg-white text-slate-950 hover:shadow-brand-500/50'}`}>
                   {isConnecting ? <Loader2 className="animate-spin" /> : (isVoiceActive ? t[language].endSession : t[language].startConv)}
                 </button>
               </div>

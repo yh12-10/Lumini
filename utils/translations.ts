@@ -114,6 +114,8 @@ export const t: Record<Language, any> = {
     extractText: "Extract Text",
     analyzeDrawing: "Analyze Drawing",
     noMissions: "No Missions Scheduled",
+    revealWait: "Wait",
+    revealAnswer: "Reveal Answer",
   },
   ar: {
     dashboard: "لوحة التحكم",
@@ -227,5 +229,7 @@ export const t: Record<Language, any> = {
     extractText: "استخراج النص",
     analyzeDrawing: "تحليل الرسم",
     noMissions: "لا مهام مجدولة",
+    revealWait: "انتظر",
+    revealAnswer: "كشف الإجابة",
   }
 };

@@ -52,12 +52,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ docs, quizzes, language, u
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h2 className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">
+            <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tighter">
               {t[language].welcome} {userProgress.level > 1 ? `Scholar` : ''}
             </h2>
             <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-extrabold uppercase animate-pulse">Online</div>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">{t[language].welcomeDesc}</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-sm md:text-base">{t[language].welcomeDesc}</p>
         </div>
         
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[28px] p-6 shadow-xl flex items-center min-w-[320px] relative overflow-hidden group">
@@ -77,9 +77,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ docs, quizzes, language, u
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[
-          { icon: Star, label: 'ACE SCORE', val: userProgress.quizzesAce, color: 'text-brand-500', bg: 'bg-brand-50' },
           { icon: FileText, label: t[language].totalDocs, val: docs.length, color: 'text-emerald-500', bg: 'bg-emerald-50' },
           { icon: Brain, label: t[language].quizzesTaken, val: quizzes.length, color: 'text-fuchsia-500', bg: 'bg-fuchsia-50' },
           { icon: Zap, label: t[language].streak, val: userProgress.streak, color: 'text-yellow-500', bg: 'bg-yellow-50' },
@@ -100,7 +99,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ docs, quizzes, language, u
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Left Side: Recent Documents */}
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[35px] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col min-h-[500px]">
+        <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[35px] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col min-h-[400px] md:min-h-[500px]">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-extrabold tracking-tight flex items-center gap-3">
               <Sparkles className="text-brand-400 w-5 h-5" />
@@ -134,7 +133,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ docs, quizzes, language, u
         </div>
 
         {/* Right Side: Recent Activity */}
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[35px] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col min-h-[500px]">
+        <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[35px] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col min-h-[400px] md:min-h-[500px]">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-extrabold tracking-tight flex items-center gap-3">
               <LayoutPanelLeft className="text-indigo-500 w-6 h-6" />
@@ -170,7 +169,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ docs, quizzes, language, u
       </div>
 
       {/* Bottom Chart Row */}
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-[35px] shadow-sm border border-slate-100 dark:border-slate-800">
+      <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[35px] shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex justify-between items-center mb-10">
           <h3 className="text-xl font-extrabold flex items-center gap-3 tracking-tight">
             <Activity className="text-brand-500 w-6 h-6" /> 

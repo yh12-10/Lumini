@@ -1,16 +1,18 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Layout } from './components/ui/Layout';
-import { Dashboard } from './components/Dashboard';
-import { DocumentManager } from './components/DocumentManager';
-import { StudySession } from './components/StudySession';
-import { Settings } from './components/Settings';
 import { Auth } from './components/Auth';
-import { Tools } from './components/Tools';
 import { AppView, Doc, Quiz, Language, UserProgress, Note, User, Task, Activity, CreativeProject } from './types';
 import { parseFile } from './services/fileProcessing';
 import { Loader2 } from 'lucide-react';
 import { t } from './utils/translations';
+
+// Lazy Load Components for Performance
+const Dashboard = React.lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
+const DocumentManager = React.lazy(() => import('./components/DocumentManager').then(module => ({ default: module.DocumentManager })));
+const StudySession = React.lazy(() => import('./components/StudySession').then(module => ({ default: module.StudySession })));
+const Settings = React.lazy(() => import('./components/Settings').then(module => ({ default: module.Settings })));
+const Tools = React.lazy(() => import('./components/Tools').then(module => ({ default: module.Tools })));
 
 const INITIAL_PROGRESS: UserProgress = {
   xp: 0,
@@ -20,54 +22,39 @@ const INITIAL_PROGRESS: UserProgress = {
   quizzesAce: 0
 };
 
+// Helper for lazy loading from localStorage to prevent overwrite
+const loadState = <T,>(key: string, fallback: T): T => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch (e) {
+    console.warn(`Failed to load ${key}`, e);
+    return fallback;
+  }
+};
+
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // CRITICAL: Initialize state lazily from localStorage to guarantee persistence
+  const [userDb, setUserDb] = useState<Record<string, User>>(() => loadState('lumina_users_db', {}));
+  const [user, setUser] = useState<User | null>(() => loadState('lumina_user', null));
+  const [language, setLanguage] = useState<Language>(() => {
+    return (localStorage.getItem('lumina_language') as Language) || 'en';
+  });
+
+  const [docs, setDocs] = useState<Doc[]>(() => loadState('lumina_docs', []));
+  const [quizzes, setQuizzes] = useState<Quiz[]>(() => loadState('lumina_quizzes', []));
+  const [userProgress, setUserProgress] = useState<UserProgress>(() => loadState('lumina_progress', INITIAL_PROGRESS));
+  const [notes, setNotes] = useState<Note[]>(() => loadState('lumina_notes', []));
+  const [tasks, setTasks] = useState<Task[]>(() => loadState('lumina_tasks', []));
+  const [activities, setActivities] = useState<Activity[]>(() => loadState('lumina_activities', []));
+  const [projects, setProjects] = useState<CreativeProject[]>(() => loadState('lumina_projects', []));
+
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
-  const [docs, setDocs] = useState<Doc[]>([]);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [activeDoc, setActiveDoc] = useState<Doc | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [language, setLanguage] = useState<Language>('en');
-  
-  const [userProgress, setUserProgress] = useState<UserProgress>(INITIAL_PROGRESS);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [projects, setProjects] = useState<CreativeProject[]>([]);
 
-  // User Database for persistence across logins
-  const [userDb, setUserDb] = useState<Record<string, User>>({});
-
-  // Initialization & Auth Check
-  useEffect(() => {
-    const savedUser = localStorage.getItem('lumina_user');
-    const savedDocs = localStorage.getItem('lumina_docs');
-    const savedQuizzes = localStorage.getItem('lumina_quizzes');
-    const savedProgress = localStorage.getItem('lumina_progress');
-    const savedNotes = localStorage.getItem('lumina_notes');
-    const savedTasks = localStorage.getItem('lumina_tasks');
-    const savedActivities = localStorage.getItem('lumina_activities');
-    const savedProjects = localStorage.getItem('lumina_projects');
-    const savedUserDb = localStorage.getItem('lumina_users_db');
-    
-    if (savedUserDb) setUserDb(JSON.parse(savedUserDb));
-
-    if (savedUser) {
-      const u = JSON.parse(savedUser);
-      setUser(u);
-      if (u.darkMode) document.documentElement.classList.add('dark');
-    }
-    if (savedDocs) setDocs(JSON.parse(savedDocs));
-    if (savedQuizzes) setQuizzes(JSON.parse(savedQuizzes));
-    if (savedProgress) setUserProgress(JSON.parse(savedProgress));
-    if (savedNotes) setNotes(JSON.parse(savedNotes));
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
-    if (savedActivities) setActivities(JSON.parse(savedActivities));
-    if (savedProjects) setProjects(JSON.parse(savedProjects));
-  }, []);
-
-  // Persistence
-  useEffect(() => { if (user) localStorage.setItem('lumina_user', JSON.stringify(user)); }, [user]);
+  // Persistence Effects - These run whenever state changes to save data
+  useEffect(() => { if (user) localStorage.setItem('lumina_user', JSON.stringify(user)); else localStorage.removeItem('lumina_user'); }, [user]);
   useEffect(() => { localStorage.setItem('lumina_docs', JSON.stringify(docs)); }, [docs]);
   useEffect(() => { localStorage.setItem('lumina_quizzes', JSON.stringify(quizzes)); }, [quizzes]);
   useEffect(() => { localStorage.setItem('lumina_progress', JSON.stringify(userProgress)); }, [userProgress]);
@@ -75,13 +62,8 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('lumina_tasks', JSON.stringify(tasks)); }, [tasks]);
   useEffect(() => { localStorage.setItem('lumina_activities', JSON.stringify(activities)); }, [activities]);
   useEffect(() => { localStorage.setItem('lumina_projects', JSON.stringify(projects)); }, [projects]);
-  
-  // Persist User Database
-  useEffect(() => { 
-    if (Object.keys(userDb).length > 0) {
-      localStorage.setItem('lumina_users_db', JSON.stringify(userDb)); 
-    }
-  }, [userDb]);
+  useEffect(() => { localStorage.setItem('lumina_language', language); }, [language]);
+  useEffect(() => { localStorage.setItem('lumina_users_db', JSON.stringify(userDb)); }, [userDb]);
 
   // Dark Mode Side Effect
   useEffect(() => {
@@ -94,18 +76,17 @@ const App: React.FC = () => {
 
   // Database Function: Add Activity securely linked to User
   const addActivity = useCallback((type: Activity['type'], description: string) => {
-    // Only track if user is logged in
     if (!user) return; 
 
     const newActivity: Activity = {
       id: Date.now().toString(),
-      userId: user.email, // Link to unique user ID (email)
+      userId: user.email,
       type,
       description,
       timestamp: new Date().toISOString()
     };
     setActivities(prev => [newActivity, ...prev]);
-  }, [user]); // Re-create callback when user changes
+  }, [user]);
 
   const handleLogin = (incomingUser: User) => {
     const existingUser = userDb[incomingUser.email];
@@ -118,6 +99,8 @@ const App: React.FC = () => {
     setUserDb(prev => ({ ...prev, [finalUser.email]: finalUser }));
     setUser(finalUser);
     setCurrentView(AppView.DASHBOARD);
+    
+    // Log login activity
     const loginActivity: Activity = {
       id: Date.now().toString(),
       userId: finalUser.email,
@@ -135,7 +118,6 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('lumina_user'); 
     setCurrentView(AppView.AUTH);
   };
 
@@ -154,7 +136,7 @@ const App: React.FC = () => {
         title: file.name,
         content: content,
         type: type,
-        size: file.size, // Capture file size
+        size: file.size, 
         dateAdded: new Date().toISOString()
       };
       setDocs(prev => [newDoc, ...prev]);
@@ -263,18 +245,18 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (!user) return <Auth onLogin={handleLogin} language={language} setLanguage={setLanguage} />;
 
-    switch (currentView) {
-      case AppView.DASHBOARD:
-        return <Dashboard docs={docs} quizzes={quizzes} language={language} userProgress={userProgress} activities={getUserActivities()} />;
-      case AppView.DOCUMENTS:
-        return <DocumentManager docs={docs} quizzes={quizzes} onUpload={handleUpload} onSelectDoc={handleSelectDoc} onDeleteDoc={handleDeleteDoc} language={language} />;
-      case AppView.TOOLS:
-        return <Tools language={language} tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} projects={projects} onSaveProject={handleSaveProject} onDeleteProject={handleDeleteProject} />;
-      case AppView.SETTINGS:
-        return <Settings user={user} onUpdateUser={handleUpdateUser} language={language} onLogout={handleLogout} activities={getUserActivities()} />;
-      case AppView.STUDY:
-        if (!activeDoc) return <Dashboard docs={docs} quizzes={quizzes} language={language} userProgress={userProgress} activities={getUserActivities()} />;
-        return (
+    return (
+      <Suspense fallback={
+        <div className="h-full w-full flex flex-col items-center justify-center p-10">
+           <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
+           <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Loading Application...</p>
+        </div>
+      }>
+        {currentView === AppView.DASHBOARD && <Dashboard docs={docs} quizzes={quizzes} language={language} userProgress={userProgress} activities={getUserActivities()} />}
+        {currentView === AppView.DOCUMENTS && <DocumentManager docs={docs} quizzes={quizzes} onUpload={handleUpload} onSelectDoc={handleSelectDoc} onDeleteDoc={handleDeleteDoc} language={language} />}
+        {currentView === AppView.TOOLS && <Tools language={language} tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} projects={projects} onSaveProject={handleSaveProject} onDeleteProject={handleDeleteProject} />}
+        {currentView === AppView.SETTINGS && <Settings user={user} onUpdateUser={handleUpdateUser} language={language} onLogout={handleLogout} activities={getUserActivities()} />}
+        {currentView === AppView.STUDY && activeDoc && (
           <StudySession 
             doc={activeDoc} 
             onBack={() => setCurrentView(AppView.DOCUMENTS)}
@@ -286,10 +268,9 @@ const App: React.FC = () => {
             onAddActivity={addActivity}
             onSaveQuiz={handleSaveQuiz}
           />
-        );
-      default:
-        return <Dashboard docs={docs} quizzes={quizzes} language={language} userProgress={userProgress} activities={getUserActivities()} />;
-    }
+        )}
+      </Suspense>
+    );
   };
 
   return (

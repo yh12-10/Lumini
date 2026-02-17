@@ -41,8 +41,13 @@ export interface Doc {
   size?: number; // File size in bytes
   dateAdded: string;
   summary?: string;
+  eli5Summary?: string; // Cached ELI5
   concepts?: Concept[];
   roadmap?: RoadmapStep[];
+  qaPairs?: QAPair[];
+  flashcards?: Flashcard[];
+  quizQuestions?: QuizQuestion[];
+  blankSentences?: BlankSentence[];
 }
 
 export interface RoadmapStep {

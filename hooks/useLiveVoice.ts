@@ -65,8 +65,22 @@ export const useLiveVoice = (documentContext: string, lang: Language) => {
     try {
       setError(null);
       setIsConnecting(true);
+
+      // 1. Setup Audio Contexts IMMEDIATELY on user click (Mobile Requirement)
+      // We must create and resume contexts before any async work (like getUserMedia)
+      const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
-      // 1. Get Stream with explicit permission handling
+      inputContextRef.current = inputCtx;
+      outputContextRef.current = outputCtx;
+      
+      // Force resume for mobile browsers
+      await Promise.all([
+        inputCtx.state === 'suspended' ? inputCtx.resume() : Promise.resolve(),
+        outputCtx.state === 'suspended' ? outputCtx.resume() : Promise.resolve()
+      ]);
+      
+      // 2. Get Stream with explicit permission handling
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -81,16 +95,6 @@ export const useLiveVoice = (documentContext: string, lang: Language) => {
           throw new Error("Could not access microphone: " + permErr.message);
         }
       }
-
-      // 2. Setup Audio Contexts
-      const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      
-      inputContextRef.current = inputCtx;
-      outputContextRef.current = outputCtx;
-      
-      if (inputCtx.state === 'suspended') await inputCtx.resume();
-      if (outputCtx.state === 'suspended') await outputCtx.resume();
 
       // 3. Connect to Gemini Live
       const sessionPromise = getLiveSession(
@@ -141,7 +145,10 @@ export const useLiveVoice = (documentContext: string, lang: Language) => {
         },
         () => {
           stopSession();
-          setError("The connection to the AI was lost. Please check your internet and try again.");
+          // Only show error if we were active
+          if (isActive) {
+             setError("Connection closed.");
+          }
         }
       );
 
@@ -183,9 +190,10 @@ export const useLiveVoice = (documentContext: string, lang: Language) => {
     } catch (e: any) {
       console.error("Voice session error:", e);
       setError(e.message || "An unexpected error occurred while starting the voice session.");
+      setIsConnecting(false); // Ensure loading state stops
       stopSession();
     }
-  }, [documentContext, lang, stopSession]);
+  }, [documentContext, lang, stopSession, isActive]);
 
   useEffect(() => {
     return () => stopSession();

@@ -27,47 +27,50 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, langu
         onChangeView(view);
         setIsMobileMenuOpen(false);
       }}
-      className={`flex items-center w-full px-4 py-3 mb-2 rounded-xl transition-all duration-200 group ${
+      className={`flex items-center w-full px-4 py-3 mb-2 rounded-xl transition-all duration-200 group active:scale-95 ${
         currentView === view
           ? 'bg-brand-600 text-white shadow-lg shadow-brand-200 dark:shadow-none'
           : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-brand-400 hover:shadow-md'
       }`}
     >
       <Icon className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'} ${currentView === view ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'}`} />
-      <span className="font-medium">{label}</span>
+      <span className="font-medium text-sm md:text-base">{label}</span>
     </button>
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50/50 dark:bg-slate-950 transition-colors duration-300" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    // Use min-h-[100dvh] for dynamic viewport height on mobile browsers
+    <div className="flex min-h-[100dvh] bg-slate-50/50 dark:bg-slate-950 transition-colors duration-300" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden transition-opacity"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 ${language === 'ar' ? 'right-0 border-l dark:border-slate-800' : 'left-0 border-r dark:border-slate-800'} z-50 h-screen w-72 bg-slate-50 dark:bg-slate-900 p-6 flex flex-col transition-transform duration-300 ${
+      {/* Sidebar - z-50 to stay above everything */}
+      <aside className={`fixed lg:sticky top-0 ${language === 'ar' ? 'right-0 border-l' : 'left-0 border-r'} dark:border-slate-800 z-50 h-[100dvh] w-[280px] bg-slate-50 dark:bg-slate-900 p-6 flex flex-col transition-transform duration-300 shadow-2xl lg:shadow-none ${
         isMobileMenuOpen ? 'translate-x-0' : (language === 'ar' ? 'translate-x-full' : '-translate-x-full')
       } lg:translate-x-0`}>
-        <div className="flex items-center mb-10 px-2">
-          <div className={`w-10 h-10 bg-gradient-to-br from-brand-500 to-fuchsia-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-200 ${language === 'ar' ? 'ml-3' : 'mr-3'}`}>
-            <Bot className="text-white w-6 h-6" />
+        <div className="flex items-center mb-10 px-2 justify-between lg:justify-start">
+          <div className="flex items-center">
+            <div className={`w-10 h-10 bg-gradient-to-br from-brand-500 to-fuchsia-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-200 ${language === 'ar' ? 'ml-3' : 'mr-3'}`}>
+              <Bot className="text-white w-6 h-6" />
+            </div>
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-400">
+              {language === 'ar' ? 'لومينا AI' : 'Lumina AI'}
+            </h1>
           </div>
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-400">
-            {language === 'ar' ? 'لومينا AI' : 'Lumina AI'}
-          </h1>
           <button 
             onClick={() => setIsMobileMenuOpen(false)}
-            className="ml-auto lg:hidden p-1 text-slate-400"
+            className="lg:hidden p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <nav className="flex-1">
+        <nav className="flex-1 space-y-1">
           <NavItem view={AppView.DASHBOARD} icon={LayoutDashboard} label={t[language].dashboard} />
           <NavItem view={AppView.DOCUMENTS} icon={FileText} label={t[language].documents} />
           <NavItem view={AppView.TOOLS} icon={Wrench} label={t[language].tools} />
@@ -113,17 +116,24 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, langu
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-slate-50/50 dark:bg-slate-950">
-        {/* Mobile Header */}
-        <header className="lg:hidden h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-100 dark:border-slate-800 flex items-center px-4 sticky top-0 z-30">
-          <button onClick={() => setIsMobileMenuOpen(true)} className={`p-2 ${language === 'ar' ? '-mr-2' : '-ml-2'} text-slate-600 dark:text-slate-300`}>
-            <Menu className="w-6 h-6" />
-          </button>
-          <span className={`font-semibold text-slate-700 dark:text-white ${language === 'ar' ? 'mr-3' : 'ml-3'}`}>{language === 'ar' ? 'لومينا AI' : 'Lumina AI'}</span>
+      <main className="flex-1 min-w-0 flex flex-col h-[100dvh] overflow-hidden bg-slate-50/50 dark:bg-slate-950">
+        {/* Mobile Header - Sticky */}
+        <header className="lg:hidden h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-4 sticky top-0 z-30 shadow-sm shrink-0">
+          <div className="flex items-center">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)} 
+              className={`p-2 rounded-xl active:bg-slate-100 dark:active:bg-slate-800 ${language === 'ar' ? '-mr-2' : '-ml-2'} text-slate-600 dark:text-slate-300`}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <span className={`font-bold text-lg text-slate-800 dark:text-white ${language === 'ar' ? 'mr-3' : 'ml-3'}`}>
+              {language === 'ar' ? 'لومينا AI' : 'Lumina AI'}
+            </span>
+          </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth">
-          <div className="max-w-6xl mx-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth pb-24 lg:pb-8">
+          <div className="max-w-6xl mx-auto h-full">
             {children}
           </div>
         </div>

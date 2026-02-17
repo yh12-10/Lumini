@@ -187,8 +187,6 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
     setShowMagicMenu(false);
 
     try {
-      // Create a temporary canvas to composite bg color + drawing
-      // This is crucial because raw canvas data has transparent background, which the AI often reads as black.
       const canvas = canvasRef.current;
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = canvas.width;
@@ -196,21 +194,16 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
       const ctx = tempCanvas.getContext('2d');
 
       if (ctx) {
-        // 1. Fill background with the user's selected color (or white)
         ctx.fillStyle = bgColor || '#ffffff';
         ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-        
-        // 2. Draw the strokes on top
         ctx.drawImage(canvas, 0, 0);
 
-        // 3. Send this composite image to the AI
         const base64Data = tempCanvas.toDataURL('image/png').split(',')[1];
         const result = await recognizeCanvasContent(base64Data, type, language);
         
         if (result) {
           const prefix = type === 'text' ? '\n' : '\n\n[Analysis]: ';
           setText(prev => prev + prefix + result);
-          // Switch to split view so they can see the result
           setMode('split');
         }
       }
@@ -241,7 +234,6 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
     setTimeout(() => setIsSaved(false), 2000);
   };
 
-  // Helper styles for Notebook Lines
   const notebookStyle = showLines ? {
     backgroundImage: `linear-gradient(${bgColor} 95%, #e2e8f0 95%)`,
     backgroundSize: '100% 40px',
@@ -250,14 +242,14 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
   } : {};
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[850px] animate-fade-in-up transition-colors duration-500" style={{ backgroundColor: bgColor }}>
+    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 md:rounded-[40px] rounded-none shadow-2xl overflow-hidden flex flex-col h-[850px] animate-fade-in-up transition-colors duration-500" style={{ backgroundColor: bgColor }}>
       
-      {/* 1. Main Toolbar */}
+      {/* 1. Main Toolbar - Responsive */}
       <div className="bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row justify-between items-center gap-4 z-20">
         
         {/* Left: Mode & Title */}
-        <div className="flex items-center gap-4 w-full xl:w-auto overflow-x-auto no-scrollbar pb-1">
-          <div className="flex bg-white dark:bg-slate-800 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+        <div className="flex items-center gap-4 w-full xl:w-auto overflow-x-auto no-scrollbar pb-1 shrink-0">
+          <div className="flex bg-white dark:bg-slate-800 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 shrink-0">
             <button
               onClick={() => setMode('write')}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
@@ -293,15 +285,13 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
           />
         </div>
 
-        {/* Center: Context Tools */}
-        <div className="flex flex-wrap items-center justify-center gap-4">
+        {/* Center: Context Tools (Scrollable on mobile) */}
+        <div className="flex flex-wrap items-center justify-center gap-4 w-full overflow-x-auto no-scrollbar pb-2 xl:pb-0">
           
-          {/* Text Tools (Visible in Write & Split) */}
           {(mode === 'write' || mode === 'split') && (
-            <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm animate-fade-in">
+            <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm animate-fade-in shrink-0">
               <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden md:block"></div>
               
-              {/* Font Picker */}
               <select 
                 value={fontFamily}
                 onChange={(e) => setFontFamily(e.target.value)}
@@ -310,7 +300,6 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
                 {FONTS.map(f => <option key={f.name} value={f.value}>{f.name}</option>)}
               </select>
 
-              {/* Text Color */}
               <div className="flex items-center gap-1">
                 {COLORS.slice(0, 4).map(c => (
                   <button
@@ -322,7 +311,6 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
                 ))}
               </div>
 
-              {/* Notebook Lines Toggle */}
               <button 
                 onClick={() => setShowLines(!showLines)}
                 className={`p-2 rounded-lg transition-colors ${showLines ? 'bg-brand-100 text-brand-600' : 'text-slate-400 hover:bg-slate-100'}`}
@@ -333,12 +321,10 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
             </div>
           )}
 
-          {/* Drawing Tools (Visible in Draw & Split) */}
           {(mode === 'draw' || mode === 'split') && (
-             <div className="flex items-center gap-3 p-1.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm animate-fade-in relative">
-                {/* Colors */}
+             <div className="flex items-center gap-3 p-1.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm animate-fade-in relative shrink-0">
                 <div className="flex gap-1">
-                  {COLORS.map(c => (
+                  {COLORS.slice(0, 5).map(c => (
                     <button
                       key={c}
                       onClick={() => { setBrushColor(c); setTool('pen'); }}
@@ -364,7 +350,7 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
                   max="20" 
                   value={brushSize} 
                   onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                  className="w-16 accent-brand-600 cursor-pointer"
+                  className="w-16 accent-brand-600 cursor-pointer hidden md:block"
                   title="Brush Size"
                 />
 
@@ -401,9 +387,9 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
           )}
 
           {/* Global: Bg Color */}
-          <div className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm shrink-0">
              <Palette className="w-4 h-4 text-slate-400" />
-             {BG_COLORS.map(c => (
+             {BG_COLORS.slice(0, 4).map(c => (
                 <button
                   key={c}
                   onClick={() => setBgColor(c)}
@@ -417,7 +403,7 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
            <button onClick={clearCanvas} className="p-3 text-red-400 hover:bg-red-50 rounded-xl transition-colors" title="Clear Canvas">
               <Trash2 className="w-5 h-5" />
            </button>
@@ -452,7 +438,7 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={language === 'ar' ? 'اكتب أفكارك هنا...' : 'Type your thoughts here...'}
-            className="w-full h-full p-10 text-xl resize-none outline-none transition-all"
+            className="w-full h-full p-4 md:p-10 text-lg md:text-xl resize-none outline-none transition-all"
             style={{ 
               fontFamily, 
               color: textColor,
@@ -474,7 +460,7 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
           style={{ backgroundColor: bgColor }}
         >
            {/* We use a container to handle the canvas scaling/view */}
-           <div className="w-full h-full overflow-auto flex items-center justify-center bg-transparent">
+           <div className="w-full h-full overflow-auto flex items-center justify-center bg-transparent touch-none">
              <canvas
               ref={canvasRef}
               onMouseDown={startDrawing}
@@ -485,12 +471,11 @@ export const CreativeStudio: React.FC<CreativeStudioProps> = ({ language, projec
               onTouchMove={draw}
               onTouchEnd={stopDrawing}
               className="cursor-crosshair touch-none shadow-sm"
-              // The canvas logic handles scaling via JS, styles purely presentational here
-              style={{ maxWidth: '100%', maxHeight: '100%' }} 
+              // Fix for mobile scrolling while drawing
+              style={{ maxWidth: '100%', maxHeight: '100%', touchAction: 'none' }} 
             />
            </div>
            
-           {/* Label for Split View */}
            {mode === 'split' && (
              <div className="absolute top-4 right-4 bg-slate-100/50 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-slate-500 pointer-events-none">
                Drawing Canvas
