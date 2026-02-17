@@ -6,6 +6,8 @@ import { AppView, Doc, Quiz, Language, UserProgress, Note, User, Task, Activity,
 import { parseFile } from './services/fileProcessing';
 import { Loader2 } from 'lucide-react';
 import { t } from './utils/translations';
+import { useInactivity } from './hooks/useInactivity';
+import { Cache } from './services/cache';
 
 // Lazy Load Components for Performance
 const Dashboard = React.lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
@@ -22,48 +24,40 @@ const INITIAL_PROGRESS: UserProgress = {
   quizzesAce: 0
 };
 
-// Helper for lazy loading from localStorage to prevent overwrite
-const loadState = <T,>(key: string, fallback: T): T => {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : fallback;
-  } catch (e) {
-    console.warn(`Failed to load ${key}`, e);
-    return fallback;
-  }
-};
-
 const App: React.FC = () => {
-  // CRITICAL: Initialize state lazily from localStorage to guarantee persistence
-  const [userDb, setUserDb] = useState<Record<string, User>>(() => loadState('lumina_users_db', {}));
-  const [user, setUser] = useState<User | null>(() => loadState('lumina_user', null));
+  // Use custom Cache service for robust storage handling
+  const [userDb, setUserDb] = useState<Record<string, User>>(() => Cache.get('lumina_users_db', {}));
+  const [user, setUser] = useState<User | null>(() => Cache.get('lumina_user', null));
   const [language, setLanguage] = useState<Language>(() => {
     return (localStorage.getItem('lumina_language') as Language) || 'en';
   });
 
-  const [docs, setDocs] = useState<Doc[]>(() => loadState('lumina_docs', []));
-  const [quizzes, setQuizzes] = useState<Quiz[]>(() => loadState('lumina_quizzes', []));
-  const [userProgress, setUserProgress] = useState<UserProgress>(() => loadState('lumina_progress', INITIAL_PROGRESS));
-  const [notes, setNotes] = useState<Note[]>(() => loadState('lumina_notes', []));
-  const [tasks, setTasks] = useState<Task[]>(() => loadState('lumina_tasks', []));
-  const [activities, setActivities] = useState<Activity[]>(() => loadState('lumina_activities', []));
-  const [projects, setProjects] = useState<CreativeProject[]>(() => loadState('lumina_projects', []));
+  const [docs, setDocs] = useState<Doc[]>(() => Cache.get('lumina_docs', []));
+  const [quizzes, setQuizzes] = useState<Quiz[]>(() => Cache.get('lumina_quizzes', []));
+  const [userProgress, setUserProgress] = useState<UserProgress>(() => Cache.get('lumina_progress', INITIAL_PROGRESS));
+  const [notes, setNotes] = useState<Note[]>(() => Cache.get('lumina_notes', []));
+  const [tasks, setTasks] = useState<Task[]>(() => Cache.get('lumina_tasks', []));
+  const [activities, setActivities] = useState<Activity[]>(() => Cache.get('lumina_activities', []));
+  const [projects, setProjects] = useState<CreativeProject[]>(() => Cache.get('lumina_projects', []));
 
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [activeDoc, setActiveDoc] = useState<Doc | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Persistence Effects - These run whenever state changes to save data
-  useEffect(() => { if (user) localStorage.setItem('lumina_user', JSON.stringify(user)); else localStorage.removeItem('lumina_user'); }, [user]);
-  useEffect(() => { localStorage.setItem('lumina_docs', JSON.stringify(docs)); }, [docs]);
-  useEffect(() => { localStorage.setItem('lumina_quizzes', JSON.stringify(quizzes)); }, [quizzes]);
-  useEffect(() => { localStorage.setItem('lumina_progress', JSON.stringify(userProgress)); }, [userProgress]);
-  useEffect(() => { localStorage.setItem('lumina_notes', JSON.stringify(notes)); }, [notes]);
-  useEffect(() => { localStorage.setItem('lumina_tasks', JSON.stringify(tasks)); }, [tasks]);
-  useEffect(() => { localStorage.setItem('lumina_activities', JSON.stringify(activities)); }, [activities]);
-  useEffect(() => { localStorage.setItem('lumina_projects', JSON.stringify(projects)); }, [projects]);
+  // Auto-refresh after 30 minutes of inactivity to keep state fresh and clear memory
+  useInactivity(30 * 60 * 1000);
+
+  // Persistence Effects
+  useEffect(() => { if (user) Cache.set('lumina_user', user); else Cache.remove('lumina_user'); }, [user]);
+  useEffect(() => { Cache.set('lumina_docs', docs); }, [docs]);
+  useEffect(() => { Cache.set('lumina_quizzes', quizzes); }, [quizzes]);
+  useEffect(() => { Cache.set('lumina_progress', userProgress); }, [userProgress]);
+  useEffect(() => { Cache.set('lumina_notes', notes); }, [notes]);
+  useEffect(() => { Cache.set('lumina_tasks', tasks); }, [tasks]);
+  useEffect(() => { Cache.set('lumina_activities', activities); }, [activities]);
+  useEffect(() => { Cache.set('lumina_projects', projects); }, [projects]);
   useEffect(() => { localStorage.setItem('lumina_language', language); }, [language]);
-  useEffect(() => { localStorage.setItem('lumina_users_db', JSON.stringify(userDb)); }, [userDb]);
+  useEffect(() => { Cache.set('lumina_users_db', userDb); }, [userDb]);
 
   // Dark Mode Side Effect
   useEffect(() => {
