@@ -2,7 +2,29 @@
 import { GoogleGenAI, Type, LiveServerMessage, Modality } from "@google/genai";
 import { Flashcard, QuizQuestion, Language, Concept, RoadmapStep, QAPair, BlankSentence } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Safely initialize the AI client
+const getAiClient = () => {
+  const key = process.env.API_KEY;
+  if (!key) {
+    console.error("API_KEY is missing from environment variables.");
+    throw new Error("API Key missing. Features will not work.");
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
+
+// Retry helper to handle network blips or rate limits (429)
+async function runWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    if (retries > 0 && (error?.status === 429 || error?.status === 503 || error?.message?.includes('fetch failed'))) {
+      console.warn(`Retrying AI call... Attempts left: ${retries}`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return runWithRetry(fn, retries - 1, delay * 2); // Exponential backoff
+    }
+    throw error;
+  }
+}
 
 const cleanJson = (text: string): string => {
   let clean = text.trim();
@@ -14,38 +36,36 @@ const cleanJson = (text: string): string => {
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const generateSummary = async (text: string, lang: Language, mode: 'normal' | 'eli5' = 'normal'): Promise<string> => {
-  try {
-    // Highly simplified prompt for ELI5
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const prompt = mode === 'eli5'
       ? (lang === 'ar' 
           ? `اشرح هذا النص وكأنك تتحدث لطفل عمره 5 سنوات. استخدم كلمات بسيطة جداً، جمل قصيرة، وتشبيهات ممتعة. تجنب المصطلحات المعقدة تماماً:\n${text.substring(0, 20000)}` 
           : `Explain this text as if you are talking to a 5-year-old. Use extremely simple words, short sentences, and fun analogies. Avoid ALL complex jargon:\n${text.substring(0, 20000)}`)
-      : (lang === 'ar' ? `لخص هذا النص بشكل شامل:\n${text.substring(0, 20000)}` : `Summarize this text comprehensively:\n${text.substring(0, 20000)}`);
+      : (lang === 'ar' ? `لخص هذا النص بشكل شامل ومفيد:\n${text.substring(0, 20000)}` : `Summarize this text comprehensively:\n${text.substring(0, 20000)}`);
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
     return response.text || "Summary unavailable.";
-  } catch (error) {
-    return "Error generating summary.";
-  }
+  });
 };
 
 export const translateText = async (text: string, targetLang: Language): Promise<string> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Translate the following text into ${targetLang === 'ar' ? 'Arabic' : 'English'}. Return ONLY the translated text:\n\n${text}`,
     });
     return response.text || text;
-  } catch (error) {
-    return text;
-  }
+  });
 };
 
 export const generateQA = async (text: string, lang: Language, existingQuestions: string[] = []): Promise<QAPair[]> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const avoid = existingQuestions.length > 0 ? `DO NOT duplicate these questions: ${JSON.stringify(existingQuestions.slice(0, 10))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -66,11 +86,12 @@ export const generateQA = async (text: string, lang: Language, existingQuestions
       }
     });
     return JSON.parse(cleanJson(response.text)).map((i: any) => ({ ...i, id: generateId() }));
-  } catch (error) { return []; }
+  });
 };
 
 export const generateBlanks = async (text: string, lang: Language, existingSentences: string[] = []): Promise<BlankSentence[]> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const avoid = existingSentences.length > 0 ? `DO NOT duplicate these sentences: ${JSON.stringify(existingSentences.slice(0, 5))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -91,11 +112,12 @@ export const generateBlanks = async (text: string, lang: Language, existingSente
       }
     });
     return JSON.parse(cleanJson(response.text)).map((i: any) => ({ ...i, id: generateId() }));
-  } catch (error) { return []; }
+  });
 };
 
 export const getBlankHint = async (sentence: string, answer: string, lang: Language): Promise<string> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const prompt = lang === 'ar' 
       ? `أعطني تلميحاً بسيطاً للكلمة المفقودة "${answer}" في هذه الجملة: "${sentence}". لا تذكر الكلمة نفسها.`
       : `Give a short, helpful hint for the missing word "${answer}" in this sentence: "${sentence}". Do not reveal the answer itself.`;
@@ -104,13 +126,12 @@ export const getBlankHint = async (sentence: string, answer: string, lang: Langu
       contents: prompt,
     });
     return response.text || "No hint available.";
-  } catch (error) {
-    return "Hint unavailable.";
-  }
+  });
 };
 
 export const generateRoadmap = async (text: string, lang: Language): Promise<RoadmapStep[]> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Create a 5-step learning roadmap for this content. Output as JSON array of {title, description, level}. Levels: Beginner, Intermediate, Advanced. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
@@ -132,13 +153,12 @@ export const generateRoadmap = async (text: string, lang: Language): Promise<Roa
     });
     const data = JSON.parse(cleanJson(response.text));
     return data.map((d: any) => ({ ...d, id: generateId(), completed: false }));
-  } catch (error) {
-    return [];
-  }
+  });
 };
 
 export const extractConcepts = async (text: string, lang: Language): Promise<Concept[]> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Extract key concepts as JSON array of {term, definition, category}. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
@@ -159,14 +179,13 @@ export const extractConcepts = async (text: string, lang: Language): Promise<Con
       }
     });
     return JSON.parse(cleanJson(response.text));
-  } catch (error) {
-    return [];
-  }
+  });
 };
 
 export const generateFlashcards = async (text: string, lang: Language, existingTerms: string[] = []): Promise<Flashcard[]> => {
-  try {
-     const avoid = existingTerms.length > 0 ? `DO NOT create cards for these terms: ${JSON.stringify(existingTerms.slice(0, 10))}` : "";
+  return runWithRetry(async () => {
+    const ai = getAiClient();
+    const avoid = existingTerms.length > 0 ? `DO NOT create cards for these terms: ${JSON.stringify(existingTerms.slice(0, 10))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Create 5 study flashcards as JSON array of {front, back}. ${avoid}. Try to cover different parts of the text. Lang: ${lang}\n\n${text.substring(0, 15000)}`,
@@ -186,13 +205,12 @@ export const generateFlashcards = async (text: string, lang: Language, existingT
       }
     });
     return JSON.parse(cleanJson(response.text)).map((c: any) => ({ id: generateId(), ...c }));
-  } catch (error) {
-    return [];
-  }
+  });
 };
 
 export const generateQuiz = async (text: string, lang: Language, existingQuestions: string[] = []): Promise<QuizQuestion[]> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const avoid = existingQuestions.length > 0 ? `DO NOT duplicate these questions: ${JSON.stringify(existingQuestions.slice(0, 5))}` : "";
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -215,13 +233,12 @@ export const generateQuiz = async (text: string, lang: Language, existingQuestio
       }
     });
     return JSON.parse(cleanJson(response.text)).map((q: any) => ({ id: generateId(), ...q }));
-  } catch (error) {
-    return [];
-  }
+  });
 };
 
 export const chatWithDoc = async (history: any[], message: string, context: string, lang: Language) => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const chat = ai.chats.create({
       model: 'gemini-3-flash-preview',
       config: {
@@ -231,13 +248,12 @@ export const chatWithDoc = async (history: any[], message: string, context: stri
     });
     const result = await chat.sendMessage({ message });
     return result.text || "Error processing message.";
-  } catch (error) {
-    return "Chat service error.";
-  }
+  });
 };
 
 export const recognizeCanvasContent = async (base64Image: string, mode: 'text' | 'shape', lang: Language): Promise<string> => {
-  try {
+  return runWithRetry(async () => {
+    const ai = getAiClient();
     const prompt = mode === 'text'
       ? (lang === 'ar' ? 'قم بتحويل النص المكتوب بخط اليد في هذه الصورة إلى نص رقمي. أعد فقط النص بدون أي مقدمات.' : 'Transcribe the handwritten text in this image. Return ONLY the text, no conversational filler.')
       : (lang === 'ar' ? 'حلل هذا الرسم. إذا كان شكلاً هندسياً، صفه. إذا كان مخططاً أو معادلة، اشرحها باختصار.' : 'Analyze this drawing. If it is a geometric shape, describe it. If it is a diagram or math problem, explain it briefly.');
@@ -257,14 +273,12 @@ export const recognizeCanvasContent = async (base64Image: string, mode: 'text' |
     });
 
     return response.text || "";
-  } catch (error) {
-    console.error("Recognition error:", error);
-    return "";
-  }
+  });
 };
 
-// Updated Live API session to include all required callbacks (onopen, onmessage, onerror, onclose)
 export const getLiveSession = async (context: string, lang: Language, onMessage: (msg: LiveServerMessage) => void, onClose: () => void) => {
+  // Live API uses web sockets, so normal retries don't apply, but client init protection is needed
+  const ai = getAiClient();
   return ai.live.connect({
     model: 'gemini-2.5-flash-native-audio-preview-12-2025',
     callbacks: {
