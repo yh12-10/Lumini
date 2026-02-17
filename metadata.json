@@ -1,0 +1,7 @@
+{
+  "name": "Lumina AI Learning",
+  "description": "A beautiful, intelligent learning assistant that transforms your documents into interactive study sessions with voice chat, quizzes, and flashcards.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
